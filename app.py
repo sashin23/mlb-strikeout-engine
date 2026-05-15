@@ -500,7 +500,7 @@ def build_master_board_table(results):
         # CONFLICT
         # ----------------
 
-        conflict = ""
+        conflict = "Aligned"
 
         if r["delta"] > 0 and opp_under >= .70:
             conflict = "Opp Suppression"
