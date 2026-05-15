@@ -534,7 +534,7 @@ def build_master_board_table(results):
 
 
         if conflict and conflict != "Coinflip":
-    risk += 1
+            risk += 1
 
 
         if r["recent_90_rate"] < .40:
