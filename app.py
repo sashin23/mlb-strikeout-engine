@@ -630,7 +630,7 @@ scored_results.append({
 
     # SORT strongest edge first
 
-    scored_results = sorted(
+scored_results = sorted(
         scored_results,
         key=lambda x:x["edge"],
         reverse=True
