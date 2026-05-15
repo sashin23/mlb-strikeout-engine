@@ -574,7 +574,7 @@ r["recent_90_rate"]
 sample_penalty
 )
 
-        scored_results.append({
+scored_results.append({
 
     "pitcher":
         r["pitcher"],
