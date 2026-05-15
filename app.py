@@ -468,7 +468,170 @@ def sample_label(n):
 
 
 def build_master_board_table(results):
-    rows = [[
+
+    rows = []
+
+    scored_results = []
+
+    for r in results:
+
+        exact = r["opp_exact_summary"]
+        broad = r["opp_pc_summary"]
+
+        opp_under = (
+            exact["under_rate"]
+            if pd.notna(exact["under_rate"])
+            else broad["under_rate"]
+        )
+
+        opp_over = (
+            exact["over_rate"]
+            if pd.notna(exact["over_rate"])
+            else broad["over_rate"]
+        )
+
+        if pd.isna(opp_under):
+            opp_under = 0
+
+        if pd.isna(opp_over):
+            opp_over = 0
+
+
+        # ------------------
+        # CONFLICT FLAG
+        # ------------------
+
+        conflict = ""
+
+        if r["delta"] > 0 and opp_under >= .70:
+            conflict = "OVER vs Opp"
+
+        elif r["delta"] < 0 and opp_over >= .70:
+            conflict = "UNDER vs Opp"
+
+        elif abs(r["delta"]) <= .5:
+            conflict = "Coinflip"
+
+        else:
+            conflict = ""
+
+
+        # ------------------
+        # RISK SCORE
+        # ------------------
+
+        risk = 0
+
+        if r["leash"] == "Fragile":
+            risk += 2
+
+        elif r["leash"] == "Moderate":
+            risk += 1
+
+
+        if exact["n"] < 3:
+            risk += 1
+
+
+        if conflict:
+            risk += 1
+
+
+        if r["recent_90_rate"] < .40:
+            risk += 1
+
+
+        risk = min(risk,5)
+
+
+        # ------------------
+        # EDGE SCORE
+        # ------------------
+
+        edge = (
+            abs(r["delta"])*2
+            +
+            abs(opp_under-opp_over)*2
+            +
+            r["recent_90_rate"]
+        )
+
+        scored_results.append({
+
+            "pitcher":
+
+                r["pitcher"],
+
+            "opp":
+
+                r["opponent"],
+
+            "line":
+
+                r["line"],
+
+            "mlk":
+
+                r["mlk"],
+
+            "delta":
+
+                r["delta"],
+
+            "leash":
+
+                r["leash"],
+
+            "recent_ks":
+
+                safe_list(r["recent_ks"]),
+
+            "recent_pc":
+
+                safe_list(r["recent_pcs"]),
+
+            "recent90":
+
+                pct(r["recent_90_rate"]),
+
+            "exact_n":
+
+                exact["n"],
+
+            "opp_under":
+
+                pct(opp_under),
+
+            "opp_over":
+
+                pct(opp_over),
+
+            "risk":
+
+                risk,
+
+            "conflict":
+
+                conflict,
+
+            "edge":
+
+                round(edge,1)
+
+        })
+
+
+    # SORT strongest edge first
+
+    scored_results = sorted(
+        scored_results,
+        key=lambda x:x["edge"],
+        reverse=True
+    )
+
+
+    rows.append([
+
         "Pitcher",
         "Opp",
         "Line",
@@ -476,55 +639,68 @@ def build_master_board_table(results):
         "Delta",
         "Leash",
         "Recent Ks",
-        "Recent PCs",
         "90+",
-        "Exact N",
-        "Exact U%",
-        "Exact O%",
-        "Broad N",
-        "Broad U%",
-        "Broad O%",
-        "Sample"
-    ]]
+        "Opp U%",
+        "Opp O%",
+        "Risk",
+        "Conflict",
+        "Edge"
 
-    for r in results:
-        exact = r["opp_exact_summary"]
-        broad = r["opp_pc_summary"]
+    ])
 
-        # Prefer exact sample label, but broader sample gives context too
-        sample = sample_label(exact["n"])
+
+    for r in scored_results:
 
         rows.append([
-            str(r["pitcher"]),
-            str(r["opponent"]),
-            str(r["line"]),
-            str(r["mlk"]),
-            str(round(r["delta"], 1)),
-            str(r["leash"]),
-            safe_list(r["recent_ks"]),
-            safe_list(r["recent_pcs"]),
-            pct(r["recent_90_rate"]),
-            str(exact["n"]),
-            pct(exact["under_rate"]),
-            pct(exact["over_rate"]),
-            str(broad["n"]),
-            pct(broad["under_rate"]),
-            pct(broad["over_rate"]),
-            sample
+
+            r["pitcher"],
+            r["opp"],
+            r["line"],
+            r["mlk"],
+            r["delta"],
+            r["leash"],
+            r["recent_ks"],
+            r["recent90"],
+            r["opp_under"],
+            r["opp_over"],
+            r["risk"],
+            r["conflict"],
+            r["edge"]
+
         ])
 
-    table = Table(rows, repeatRows=1)
+
+    table = Table(
+        rows,
+        repeatRows=1
+    )
 
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.black),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 5.5),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
+        ("BACKGROUND",
+         (0,0),
+         (-1,0),
+         colors.lightgrey),
+
+        ("GRID",
+         (0,0),
+         (-1,-1),
+         0.4,
+         colors.black),
+
+        ("FONTNAME",
+         (0,0),
+         (-1,0),
+         "Helvetica-Bold"),
+
+        ("FONTSIZE",
+         (0,0),
+         (-1,-1),
+         6),
+
     ]))
 
     return table
-
 
 def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
     buffer = BytesIO()
