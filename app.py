@@ -6,7 +6,7 @@ st.set_page_config(layout="wide")
 st.title("MLB Strikeout Decision Engine")
 
 sheet_url = st.text_input(
-    "Google Sheet CSV URL",
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkb6qWg9Jk_eKnf3DtvajFfJROa4v7_m6muP5ZP_MgWy85dn4zSsjtZlG9yEhXZFzw_U5VHY8miSzH/pub?gid=1998354188&single=true&output=csv",
     ""
 )
 
