@@ -470,7 +470,6 @@ def sample_label(n):
 def build_master_board_table(results):
 
     rows = []
-
     scored_results = []
 
     for r in results:
@@ -497,9 +496,9 @@ def build_master_board_table(results):
             opp_over = 0
 
 
-        # ------------------
-        # CONFLICT FLAG
-        # ------------------
+        # ----------------
+        # CONFLICT
+        # ----------------
 
         conflict = ""
 
@@ -512,13 +511,10 @@ def build_master_board_table(results):
         elif abs(r["delta"]) <= .5:
             conflict = "Coinflip"
 
-        else:
-            conflict = ""
 
-
-        # ------------------
-        # RISK SCORE
-        # ------------------
+        # ----------------
+        # RISK
+        # ----------------
 
         risk = 0
 
@@ -537,113 +533,94 @@ def build_master_board_table(results):
             risk += 1
 
 
-        if r["recent_90_rate"] < .40:
-            risk += 1
+        if pd.notna(r["recent_90_rate"]):
+
+            if r["recent_90_rate"] < .40:
+                risk += 1
 
 
         risk = min(risk,5)
 
 
-        # ------------------
+        # ----------------
         # EDGE SCORE
-        # ------------------
+        # ----------------
 
         sample_penalty = 0
 
-if exact["n"] < 3:
-    sample_penalty = -.75
+        if exact["n"] < 3:
+            sample_penalty = -.75
 
-elif exact["n"] < 6:
-    sample_penalty = -.25
-
-
-edge = (
-
-abs(r["delta"])*2
-
-+
-
-abs(opp_under-opp_over)*2
-
-+
-
-r["recent_90_rate"]
-
-+
-
-sample_penalty
-)
-
-scored_results.append({
-
-    "pitcher":
-        r["pitcher"],
-
-    "opp":
-        r["opponent"],
-
-    "line":
-        r["line"],
-
-    "mlk":
-        r["mlk"],
-
-    "delta":
-        r["delta"],
-
-    "leash":
-        r["leash"],
-
-    "recent_ks":
-        safe_list(r["recent_ks"]),
-
-    "recent90":
-        pct(r["recent_90_rate"]),
-
-    "opp_under":
-        pct(opp_under),
-
-    "opp_over":
-        pct(opp_over),
-
-    "risk":
-        risk,
-
-    "conflict":
-        conflict,
-
-    "play":
-
-        "OVER"
-        if r["delta"] > 0
-
-        else "UNDER"
-        if r["delta"] < 0
-
-        else "PASS",
-
-    "edge":
-        round(edge,1)
-
-})
+        elif exact["n"] < 6:
+            sample_penalty = -.25
 
 
-    # SORT strongest edge first
+        edge = (
 
-scored_results = sorted(
+            abs(r["delta"])*2
+
+            +
+
+            abs(opp_under-opp_over)*2
+
+            +
+
+            (
+                r["recent_90_rate"]
+                if pd.notna(r["recent_90_rate"])
+                else 0
+            )
+
+            +
+
+            sample_penalty
+        )
+
+
+        play = (
+            "OVER"
+            if r["delta"] > 0
+            else "UNDER"
+            if r["delta"] < 0
+            else "PASS"
+        )
+
+
+        scored_results.append({
+
+            "pitcher": r["pitcher"],
+            "opp": r["opponent"],
+            "line": r["line"],
+            "mlk": r["mlk"],
+            "delta": r["delta"],
+            "play": play,
+            "leash": r["leash"],
+            "recent_ks": safe_list(r["recent_ks"]),
+            "recent90": pct(r["recent_90_rate"]),
+            "opp_under": pct(opp_under),
+            "opp_over": pct(opp_over),
+            "risk": risk,
+            "conflict": conflict,
+            "edge": round(edge,1)
+
+        })
+
+
+    scored_results = sorted(
         scored_results,
         key=lambda x:x["edge"],
         reverse=True
     )
 
 
-rows.append([
+    rows.append([
 
         "Pitcher",
         "Opp",
         "Line",
         "MLK",
         "Delta",
+        "Play",
         "Leash",
         "Recent Ks",
         "90+",
@@ -660,22 +637,22 @@ rows.append([
 
         rows.append([
 
-r["pitcher"],
-r["opp"],
-r["line"],
-r["mlk"],
-r["delta"],
-r["play"],     # <-- add this
-r["leash"],
-r["recent_ks"],
-r["recent90"],
-r["opp_under"],
-r["opp_over"],
-r["risk"],
-r["conflict"],
-r["edge"]
+            r["pitcher"],
+            r["opp"],
+            r["line"],
+            r["mlk"],
+            r["delta"],
+            r["play"],
+            r["leash"],
+            r["recent_ks"],
+            r["recent90"],
+            r["opp_under"],
+            r["opp_over"],
+            r["risk"],
+            r["conflict"],
+            r["edge"]
 
-])
+        ])
 
 
     table = Table(
@@ -704,7 +681,7 @@ r["edge"]
         ("FONTSIZE",
          (0,0),
          (-1,-1),
-         6),
+         6)
 
     ]))
 
