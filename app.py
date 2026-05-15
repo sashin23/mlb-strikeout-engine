@@ -533,8 +533,8 @@ def build_master_board_table(results):
             risk += 1
 
 
-        if conflict:
-            risk += 1
+        if conflict and conflict != "Coinflip":
+    risk += 1
 
 
         if r["recent_90_rate"] < .40:
@@ -548,77 +548,84 @@ def build_master_board_table(results):
         # EDGE SCORE
         # ------------------
 
-        edge = (
-            abs(r["delta"])*2
-            +
-            abs(opp_under-opp_over)*2
-            +
-            r["recent_90_rate"]
-        )
+        sample_penalty = 0
+
+if exact["n"] < 3:
+    sample_penalty = -.75
+
+elif exact["n"] < 6:
+    sample_penalty = -.25
+
+
+edge = (
+
+abs(r["delta"])*2
+
++
+
+abs(opp_under-opp_over)*2
+
++
+
+r["recent_90_rate"]
+
++
+
+sample_penalty
+)
 
         scored_results.append({
 
-            "pitcher":
+    "pitcher":
+        r["pitcher"],
 
-                r["pitcher"],
+    "opp":
+        r["opponent"],
 
-            "opp":
+    "line":
+        r["line"],
 
-                r["opponent"],
+    "mlk":
+        r["mlk"],
 
-            "line":
+    "delta":
+        r["delta"],
 
-                r["line"],
+    "leash":
+        r["leash"],
 
-            "mlk":
+    "recent_ks":
+        safe_list(r["recent_ks"]),
 
-                r["mlk"],
+    "recent90":
+        pct(r["recent_90_rate"]),
 
-            "delta":
+    "opp_under":
+        pct(opp_under),
 
-                r["delta"],
+    "opp_over":
+        pct(opp_over),
 
-            "leash":
+    "risk":
+        risk,
 
-                r["leash"],
+    "conflict":
+        conflict,
 
-            "recent_ks":
+    "play":
 
-                safe_list(r["recent_ks"]),
+        "OVER"
+        if r["delta"] > 0
 
-            "recent_pc":
+        else "UNDER"
+        if r["delta"] < 0
 
-                safe_list(r["recent_pcs"]),
+        else "PASS",
 
-            "recent90":
+    "edge":
+        round(edge,1)
 
-                pct(r["recent_90_rate"]),
-
-            "exact_n":
-
-                exact["n"],
-
-            "opp_under":
-
-                pct(opp_under),
-
-            "opp_over":
-
-                pct(opp_over),
-
-            "risk":
-
-                risk,
-
-            "conflict":
-
-                conflict,
-
-            "edge":
-
-                round(edge,1)
-
-        })
+})
 
 
     # SORT strongest edge first
@@ -653,21 +660,22 @@ def build_master_board_table(results):
 
         rows.append([
 
-            r["pitcher"],
-            r["opp"],
-            r["line"],
-            r["mlk"],
-            r["delta"],
-            r["leash"],
-            r["recent_ks"],
-            r["recent90"],
-            r["opp_under"],
-            r["opp_over"],
-            r["risk"],
-            r["conflict"],
-            r["edge"]
+r["pitcher"],
+r["opp"],
+r["line"],
+r["mlk"],
+r["delta"],
+r["play"],     # <-- add this
+r["leash"],
+r["recent_ks"],
+r["recent90"],
+r["opp_under"],
+r["opp_over"],
+r["risk"],
+r["conflict"],
+r["edge"]
 
-        ])
+])
 
 
     table = Table(
