@@ -6,7 +6,7 @@ st.set_page_config(layout="wide")
 st.title("MLB Strikeout Decision Engine")
 
 sheet_url = st.text_input(
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkb6qWg9Jk_eKnf3DtvajFfJROa4v7_m6muP5ZP_MgWy85dn4zSsjtZlG9yEhXZFzw_U5VHY8miSzH/pub?gid=1998354188&single=true&output=csv",
+    "Google Sheet CSV URL",
     ""
 )
 
@@ -33,14 +33,28 @@ if run:
 
         df = pd.read_csv(sheet_url)
 
-        st.write("Dataset rows:", len(df))
+        st.success(
+            f"Loaded dataset: {len(df)} rows"
+        )
+
+        st.write(
+            "Date range:",
+            df["Date"].min(),
+            "→",
+            df["Date"].max()
+        )
+
+        st.write(
+            "Unique pitchers:",
+            df["Pitcher"].nunique()
+        )
 
         st.dataframe(
             df.head()
         )
 
-    except:
+    except Exception as e:
 
-        st.warning(
-            "Google sheet not loaded"
+        st.error(
+            f"Dataset failed: {e}"
         )
