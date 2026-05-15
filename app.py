@@ -637,7 +637,7 @@ scored_results = sorted(
     )
 
 
-    rows.append([
+rows.append([
 
         "Pitcher",
         "Opp",
