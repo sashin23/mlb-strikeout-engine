@@ -503,10 +503,10 @@ def build_master_board_table(results):
         conflict = ""
 
         if r["delta"] > 0 and opp_under >= .70:
-            conflict = "OVER vs Opp"
+            conflict = "Opp Suppression"
 
         elif r["delta"] < 0 and opp_over >= .70:
-            conflict = "UNDER vs Opp"
+            conflict = "Pitcher Aggression"
 
         elif abs(r["delta"]) <= .5:
             conflict = "Coinflip"
@@ -549,7 +549,7 @@ def build_master_board_table(results):
         sample_penalty = 0
 
         if exact["n"] < 3:
-            sample_penalty = -.75
+            sample_penalty = -1.5
 
         elif exact["n"] < 6:
             sample_penalty = -.25
@@ -575,6 +575,9 @@ def build_master_board_table(results):
 
             sample_penalty
         )
+
+        if abs(r["delta"]) < .5:
+            edge -= 1
 
 
         play = (
