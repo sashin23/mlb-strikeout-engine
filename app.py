@@ -439,7 +439,7 @@ def analyze_pitcher(row, df):
 # PDF
 # =============================
 
-def dataframe_table(df, max_rows=10):
+def dataframe_table(df, max_rows=10, font_size=6):
     if df is None or df.empty:
         return None
 
@@ -451,9 +451,78 @@ def dataframe_table(df, max_rows=10):
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("FONTSIZE", (0, 0), (-1, -1), font_size),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
+    return table
+
+
+def sample_label(n):
+    if n >= 6:
+        return "Good"
+    elif n >= 3:
+        return "Medium"
+    elif n >= 1:
+        return "Small"
+    return "None"
+
+
+def build_master_board_table(results):
+    rows = [[
+        "Pitcher",
+        "Opp",
+        "Line",
+        "MLK",
+        "Delta",
+        "Leash",
+        "Recent Ks",
+        "Recent PCs",
+        "90+",
+        "Exact N",
+        "Exact U%",
+        "Exact O%",
+        "Broad N",
+        "Broad U%",
+        "Broad O%",
+        "Sample"
+    ]]
+
+    for r in results:
+        exact = r["opp_exact_summary"]
+        broad = r["opp_pc_summary"]
+
+        # Prefer exact sample label, but broader sample gives context too
+        sample = sample_label(exact["n"])
+
+        rows.append([
+            str(r["pitcher"]),
+            str(r["opponent"]),
+            str(r["line"]),
+            str(r["mlk"]),
+            str(round(r["delta"], 1)),
+            str(r["leash"]),
+            safe_list(r["recent_ks"]),
+            safe_list(r["recent_pcs"]),
+            pct(r["recent_90_rate"]),
+            str(exact["n"]),
+            pct(exact["under_rate"]),
+            pct(exact["over_rate"]),
+            str(broad["n"]),
+            pct(broad["under_rate"]),
+            pct(broad["over_rate"]),
+            sample
+        ])
+
+    table = Table(rows, repeatRows=1)
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.black),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 5.5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+
     return table
 
 
@@ -463,14 +532,18 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(letter),
-        rightMargin=24,
-        leftMargin=24,
-        topMargin=24,
-        bottomMargin=24
+        rightMargin=18,
+        leftMargin=18,
+        topMargin=18,
+        bottomMargin=18
     )
 
     styles = getSampleStyleSheet()
     story = []
+
+    # =========================
+    # COVER / REPORT SUMMARY
+    # =========================
 
     story.append(Paragraph("MLB Strikeout Evidence Report", styles["Title"]))
     story.append(Spacer(1, 8))
@@ -480,16 +553,52 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
     story.append(Paragraph(f"Valid PP Pitchers: {len(results)}", styles["BodyText"]))
     story.append(Spacer(1, 12))
 
+    # =========================
+    # MASTER BOARD SUMMARY
+    # =========================
+
+    story.append(Paragraph("MASTER BOARD SUMMARY", styles["Heading1"]))
+    story.append(Paragraph(
+        "Use this page as the triage board. Detailed evidence for each pitcher follows after the summary.",
+        styles["BodyText"]
+    ))
+    story.append(Spacer(1, 8))
+
+    if len(results) > 0:
+        story.append(build_master_board_table(results))
+    else:
+        story.append(Paragraph("No valid pitchers found for PDF.", styles["BodyText"]))
+
+    story.append(PageBreak())
+
+    # =========================
+    # MANUAL REVIEW SECTION
+    # =========================
+
     if manual_review_rows is not None and not manual_review_rows.empty:
         story.append(Paragraph("Manual Review / Unmatched Rows", styles["Heading2"]))
+        story.append(Paragraph(
+            "These rows were excluded from pitcher analysis because the app could not safely match them to today's pregame pitcher pool.",
+            styles["BodyText"]
+        ))
+        story.append(Spacer(1, 8))
+
         mr = manual_review_rows[["Input Name", "PP Line", "Matched Pitcher", "Match Status"]].copy()
-        table = dataframe_table(mr, max_rows=50)
+        table = dataframe_table(mr, max_rows=50, font_size=7)
         if table:
             story.append(table)
+
         story.append(PageBreak())
 
+    # =========================
+    # DETAILED EVIDENCE SECTIONS
+    # =========================
+
     for result in results:
-        story.append(Paragraph(f"{result['pitcher']} ({result['team']}) vs {result['opponent']} — Line {result['line']}", styles["Heading1"]))
+        story.append(Paragraph(
+            f"{result['pitcher']} ({result['team']}) vs {result['opponent']} — Line {result['line']}",
+            styles["Heading1"]
+        ))
 
         proj_text = f"""
         <b>Pregame Projection</b><br/>
@@ -512,7 +621,12 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
         story.append(Spacer(1, 8))
 
         story.append(Paragraph("Pitcher Recent Rows Used", styles["Heading2"]))
-        recent_table = dataframe_table(compact_rows(result["recent_rows"], max_rows=5), max_rows=5)
+        recent_table = dataframe_table(
+            compact_rows(result["recent_rows"], max_rows=5),
+            max_rows=5,
+            font_size=6
+        )
+
         if recent_table:
             story.append(recent_table)
         else:
@@ -524,7 +638,7 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
         exact_text = f"""
         <b>Opponent Exact Archetype</b><br/>
         Filter: Opponent {result['opponent']} + PC Tier {result['proj_pc_tier']} + MLK Tier {result['mlk_tier']}<br/>
-        Rows: {exact['n']}<br/>
+        Rows: {exact['n']} ({sample_label(exact['n'])} sample)<br/>
         Avg Ks: {fmt_num(exact['avg_ks'])}<br/>
         Over Rate vs Line: {pct(exact['over_rate'])}<br/>
         Under Rate vs Line: {pct(exact['under_rate'])}<br/>
@@ -533,7 +647,11 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
         story.append(Paragraph(exact_text, styles["BodyText"]))
 
         if exact["n"] > 0:
-            exact_table = dataframe_table(compact_rows(result["opp_exact_rows"], max_rows=10), max_rows=10)
+            exact_table = dataframe_table(
+                compact_rows(result["opp_exact_rows"], max_rows=10),
+                max_rows=10,
+                font_size=6
+            )
             if exact_table:
                 story.append(exact_table)
 
@@ -543,7 +661,7 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
         broad_text = f"""
         <b>Opponent Broader Workload</b><br/>
         Filter: Opponent {result['opponent']} + PC Tier {result['proj_pc_tier']}<br/>
-        Rows: {broad['n']}<br/>
+        Rows: {broad['n']} ({sample_label(broad['n'])} sample)<br/>
         Avg Ks: {fmt_num(broad['avg_ks'])}<br/>
         Over Rate vs Line: {pct(broad['over_rate'])}<br/>
         Under Rate vs Line: {pct(broad['under_rate'])}<br/>
@@ -552,7 +670,11 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
         story.append(Paragraph(broad_text, styles["BodyText"]))
 
         if broad["n"] > 0:
-            broad_table = dataframe_table(compact_rows(result["opp_pc_rows"], max_rows=10), max_rows=10)
+            broad_table = dataframe_table(
+                compact_rows(result["opp_pc_rows"], max_rows=10),
+                max_rows=10,
+                font_size=6
+            )
             if broad_table:
                 story.append(broad_table)
 
@@ -562,7 +684,6 @@ def build_pdf(results, board, manual_review_rows, dataset_rows, latest_date):
 
     buffer.seek(0)
     return buffer
-
 
 # =============================
 # APP UI
